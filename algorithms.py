@@ -88,3 +88,46 @@ def vain_algo(history, count, prediction_history=None):
     indexed = [{'index': i, 'value': v} for i, v in enumerate(votes)]
     indexed.sort(key=lambda k: k['value'], reverse=True)
     return [item['index'] for item in indexed[:count]]
+
+
+# --- Slide Algorithms ---
+
+def slide_majority(history):
+    """Most frequent winning color"""
+    colors = [r.get('winningColor', 'red') for r in history]
+    if not colors:
+        return 'red'
+    counts = {'red': colors.count('red'), 'yellow': colors.count('yellow'), 'purple': colors.count('purple')}
+    return max(counts, key=counts.get)
+
+def slide_second_most(history):
+    """Second most frequent winning color (anti-mode)"""
+    colors = [r.get('winningColor', 'red') for r in history]
+    if not colors:
+        return 'purple'
+    counts = {'red': colors.count('red'), 'yellow': colors.count('yellow'), 'purple': colors.count('purple')}
+    sorted_colors = sorted(counts, key=counts.get, reverse=True)
+    return sorted_colors[1] if len(sorted_colors) > 1 else sorted_colors[0]
+
+def vain_slide_algo(history):
+    """Combines majority + anti-mode for Slide"""
+    colors = [r.get('winningColor', 'red') for r in history]
+    if not colors:
+        return 'red'
+    
+    counts = {'red': colors.count('red'), 'yellow': colors.count('yellow'), 'purple': colors.count('purple')}
+    sorted_colors = sorted(counts, key=counts.get, reverse=True)
+    majority_pred = sorted_colors[0]
+    second_pred = sorted_colors[1] if len(sorted_colors) > 1 else sorted_colors[0]
+    
+    if majority_pred == second_pred:
+        return majority_pred
+    
+    recent = colors[-5:] if len(colors) >= 5 else colors
+    recent_counts = {'red': recent.count('red'), 'yellow': recent.count('yellow'), 'purple': recent.count('purple')}
+    max_recent = max(recent_counts, key=recent_counts.get)
+    
+    if recent_counts[max_recent] >= 3:
+        return max_recent
+    
+    return majority_pred

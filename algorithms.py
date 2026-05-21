@@ -90,44 +90,71 @@ def vain_algo(history, count, prediction_history=None):
     return [item['index'] for item in indexed[:count]]
 
 
-# --- Slide Algorithms ---
+TOWER_ROWS = 8
+TOWER_COLS = 3
+TOWER_TOTAL = TOWER_ROWS * TOWER_COLS
 
-def slide_majority(history):
-    """Most frequent winning color"""
-    colors = [r.get('winningColor', 'red') for r in history]
-    if not colors:
-        return 'red'
-    counts = {'red': colors.count('red'), 'yellow': colors.count('yellow'), 'purple': colors.count('purple')}
-    return max(counts, key=counts.get)
+def parse_tower_rows(history):
+    """Extract bomb position rows from tower game history"""
+    rows = []
+    for game in history:
+        tiles = game.get('tiles', []) or game.get('bombPositions', [])
+        if len(tiles) >= 8:
+            for row in tiles[:8]:
+                if len(row) >= 3:
+                    rows.append(row[:3])
+    return rows
 
-def slide_second_most(history):
-    """Second most frequent winning color (anti-mode)"""
-    colors = [r.get('winningColor', 'red') for r in history]
-    if not colors:
-        return 'purple'
-    counts = {'red': colors.count('red'), 'yellow': colors.count('yellow'), 'purple': colors.count('purple')}
-    sorted_colors = sorted(counts, key=counts.get, reverse=True)
-    return sorted_colors[1] if len(sorted_colors) > 1 else sorted_colors[0]
+def tower_pathfinding(history, count):
+    """Port of TowersPathfinding - analyzes bomb path between consecutive rows"""
+    scores = [0] * TOWER_TOTAL
+    rows = parse_tower_rows(history)
+    if len(rows) < 2:
+        return list(range(min(count, TOWER_TOTAL)))
+    for i in range(len(rows) - 1):
+        current = rows[i]
+        nxt = rows[i + 1]
+        bomb_col = current.index(1) if 1 in current else 0
+        safe_cols = [c for c in range(TOWER_COLS) if c < len(nxt) and nxt[c] == 0]
+        for sc in safe_cols:
+            n = min(bomb_col + sc, TOWER_COLS - 1)
+            row_idx = (i + 1) % TOWER_ROWS
+            idx = row_idx * TOWER_COLS + n
+            scores[idx] += 1
+    indexed = [{'index': i, 'value': v} for i, v in enumerate(scores)]
+    indexed.sort(key=lambda k: k['value'], reverse=True)
+    return [item['index'] for item in indexed[:count]]
 
-def vain_slide_algo(history):
-    """Combines majority + anti-mode for Slide"""
-    colors = [r.get('winningColor', 'red') for r in history]
-    if not colors:
-        return 'red'
-    
-    counts = {'red': colors.count('red'), 'yellow': colors.count('yellow'), 'purple': colors.count('purple')}
-    sorted_colors = sorted(counts, key=counts.get, reverse=True)
-    majority_pred = sorted_colors[0]
-    second_pred = sorted_colors[1] if len(sorted_colors) > 1 else sorted_colors[0]
-    
-    if majority_pred == second_pred:
-        return majority_pred
-    
-    recent = colors[-5:] if len(colors) >= 5 else colors
-    recent_counts = {'red': recent.count('red'), 'yellow': recent.count('yellow'), 'purple': recent.count('purple')}
-    max_recent = max(recent_counts, key=recent_counts.get)
-    
-    if recent_counts[max_recent] >= 3:
-        return max_recent
-    
-    return majority_pred
+def tower_probability(history, count):
+    """Port of TowersProbability - uses frequency analysis"""
+    scores = [0] * TOWER_TOTAL
+    rows = parse_tower_rows(history)
+    if len(rows) < 2:
+        return list(range(min(count, TOWER_TOTAL)))
+    for i in range(0, len(rows) - 2, 3):
+        group = rows[i:i + 3]
+        if len(group) < 3:
+            break
+        g = []
+        for row in group:
+            g.extend(row[:TOWER_COLS])
+        for c in range(TOWER_COLS):
+            if c < len(g):
+                nn = [idx for idx, val in enumerate(g) if val == 0]
+                if len(nn) >= 2:
+                    diff = min(abs(nn[0] - nn[1]) - (g.index(1) if 1 in g else 0), TOWER_COLS - 1)
+                    row_in_group = (i // 3) * 3 + (diff % 3)
+                    if row_in_group < TOWER_ROWS:
+                        idx = row_in_group * TOWER_COLS + diff
+                        if idx < TOWER_TOTAL:
+                            scores[idx] += 1
+    indexed = [{'index': i, 'value': v} for i, v in enumerate(scores)]
+    indexed.sort(key=lambda k: k['value'], reverse=True)
+    return [item['index'] for item in indexed[:count]]
+
+def vain_tower_algo(history, count):
+    """Combines pathfinding + probability for Towers"""
+    a = set(tower_pathfinding(history, count * 2))
+    b = set(tower_probability(history, count * 2))
+    combined = list(a & b) + list(a ^ b)
+    return combined[:count] if len(combined) >= count else list(combined) + [i for i in range(TOWER_TOTAL) if i not in combined][:count - len(combined)]

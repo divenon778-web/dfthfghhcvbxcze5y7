@@ -95,66 +95,58 @@ TOWER_COLS = 3
 TOWER_TOTAL = TOWER_ROWS * TOWER_COLS
 
 def parse_tower_rows(history):
-    """Extract bomb position rows from tower game history"""
     rows = []
     for game in history:
-        tiles = game.get('tiles', []) or game.get('bombPositions', [])
-        if len(tiles) >= 8:
-            for row in tiles[:8]:
-                if len(row) >= 3:
-                    rows.append(row[:3])
+        raw = game.get('tiles') or game.get('bombPositions') or game.get('grid', [])
+        if isinstance(raw, list) and len(raw) >= 8:
+            for r in raw[:8]:
+                if isinstance(r, list) and len(r) >= 3:
+                    rows.append([int(x) if x in (0,1) else 0 for x in r[:3]])
+        elif isinstance(game, dict):
+            for i in range(8):
+                key = f'row{i}'
+                r = game.get(key)
+                if isinstance(r, list) and len(r) >= 3:
+                    rows.append([int(x) if x in (0,1) else 0 for x in r[:3]])
     return rows
 
 def tower_pathfinding(history, count):
-    """Port of TowersPathfinding - analyzes bomb path between consecutive rows"""
     scores = [0] * TOWER_TOTAL
     rows = parse_tower_rows(history)
-    if len(rows) < 2:
+    if not rows:
         return list(range(min(count, TOWER_TOTAL)))
-    for i in range(len(rows) - 1):
-        current = rows[i]
+    for i in range(min(len(rows) - 1, 50)):
+        cur = rows[i]
         nxt = rows[i + 1]
-        bomb_col = current.index(1) if 1 in current else 0
-        safe_cols = [c for c in range(TOWER_COLS) if c < len(nxt) and nxt[c] == 0]
-        for sc in safe_cols:
-            n = min(bomb_col + sc, TOWER_COLS - 1)
-            row_idx = (i + 1) % TOWER_ROWS
-            idx = row_idx * TOWER_COLS + n
-            scores[idx] += 1
-    indexed = [{'index': i, 'value': v} for i, v in enumerate(scores)]
-    indexed.sort(key=lambda k: k['value'], reverse=True)
-    return [item['index'] for item in indexed[:count]]
+        bomb = cur.index(1) if 1 in cur else 0
+        safe = [c for c in range(TOWER_COLS) if c < len(nxt) and nxt[c] == 0]
+        for s in safe:
+            idx = ((i + 1) % TOWER_ROWS) * TOWER_COLS + min(bomb + s, TOWER_COLS - 1)
+            if idx < TOWER_TOTAL:
+                scores[idx] += 1
+    indexed = sorted([{'i': i, 'v': v} for i, v in enumerate(scores)], key=lambda k: k['v'], reverse=True)
+    return [x['i'] for x in indexed[:count]]
 
 def tower_probability(history, count):
-    """Port of TowersProbability - uses frequency analysis"""
     scores = [0] * TOWER_TOTAL
     rows = parse_tower_rows(history)
-    if len(rows) < 2:
+    if not rows:
         return list(range(min(count, TOWER_TOTAL)))
-    for i in range(0, len(rows) - 2, 3):
-        group = rows[i:i + 3]
-        if len(group) < 3:
-            break
-        g = []
-        for row in group:
-            g.extend(row[:TOWER_COLS])
+    for i in range(len(rows)):
+        row = rows[i]
         for c in range(TOWER_COLS):
-            if c < len(g):
-                nn = [idx for idx, val in enumerate(g) if val == 0]
-                if len(nn) >= 2:
-                    diff = min(abs(nn[0] - nn[1]) - (g.index(1) if 1 in g else 0), TOWER_COLS - 1)
-                    row_in_group = (i // 3) * 3 + (diff % 3)
-                    if row_in_group < TOWER_ROWS:
-                        idx = row_in_group * TOWER_COLS + diff
-                        if idx < TOWER_TOTAL:
-                            scores[idx] += 1
-    indexed = [{'index': i, 'value': v} for i, v in enumerate(scores)]
-    indexed.sort(key=lambda k: k['value'], reverse=True)
-    return [item['index'] for item in indexed[:count]]
+            if c < len(row) and row[c] == 0:
+                idx = (i % TOWER_ROWS) * TOWER_COLS + c
+                if idx < TOWER_TOTAL:
+                    scores[idx] += 1
+    indexed = sorted([{'i': i, 'v': v} for i, v in enumerate(scores)], key=lambda k: k['v'], reverse=True)
+    return [x['i'] for x in indexed[:count]]
 
 def vain_tower_algo(history, count):
-    """Combines pathfinding + probability for Towers"""
     a = set(tower_pathfinding(history, count * 2))
     b = set(tower_probability(history, count * 2))
     combined = list(a & b) + list(a ^ b)
-    return combined[:count] if len(combined) >= count else list(combined) + [i for i in range(TOWER_TOTAL) if i not in combined][:count - len(combined)]
+    if len(combined) >= count:
+        return combined[:count]
+    remaining = [i for i in range(TOWER_TOTAL) if i not in combined]
+    return combined + remaining[:count - len(combined)]

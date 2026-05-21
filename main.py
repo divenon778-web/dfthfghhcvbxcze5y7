@@ -58,6 +58,28 @@ async def root():
     """
     return Response(content=html, media_type="text/html")
 
+@app.post("/debug-history")
+async def debug_history(req: PredictionRequest):
+    samples = []
+    for i, game in enumerate(req.history[:3]):
+        info = {"index": i, "type": str(type(game)), "keys": [], "sample_vals": []}
+        if isinstance(game, dict):
+            info["keys"] = list(game.keys())
+            for k, v in game.items():
+                val_preview = str(v)[:200] if v else "None"
+                info["sample_vals"].append({"key": k, "type": type(v).__name__, "preview": val_preview})
+        elif isinstance(game, list):
+            info["length"] = len(game)
+            info["first_few"] = str(game[:3])[:200]
+        samples.append(info)
+    parsed = algorithms.parse_tower_rows(req.history)
+    return {
+        "total_games": len(req.history),
+        "parsed_rows": len(parsed),
+        "parsed_preview": str(parsed[:10])[:500] if parsed else "empty",
+        "samples": samples
+    }
+
 @app.post("/predict")
 async def predict(req: PredictionRequest, x_user_key: str = Header(...)):
     if not database.is_valid_key(x_user_key):

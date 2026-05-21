@@ -8,7 +8,7 @@ import database
 
 app = FastAPI(title="Vain Backend")
 
-# Enable CORS so the userscript can communicate with the backend
+# CORS is required so the userscript can send headers to your backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -67,6 +67,53 @@ async def predict(req: PredictionRequest, x_user_key: str = Header(...)):
 async def admin_panel():
     html = """
     <!DOCTYPE html>
-    <html = """
-    <!DOCTYPE html>
-    <html
+    <html>
+        <head><style>
+            body { background:#0a0a0a; color:#fff; font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; }
+            .panel { background:#00000080; backdrop-filter:blur(20px); border:1px solid #252525; padding:30px; border-radius:12px; width:300px; text-align:center; }
+            input { width:90%; padding:10px; margin:10px 0; background:#00000033; border:1px solid #252525; color:#fff; border-radius:6px; }
+            button { width:100%; padding:10px; background:rgba(255,255,255,0.3); border:1px solid #fff; color:#000; border-radius:6px; cursor:pointer; font-weight:bold; margin-bottom: 5px; }
+            button:hover { backdrop-filter:brightness(2); }
+            #result { margin-top:15px; color:#4ade80; word-break:break-all; }
+            .type-btn { width: 30%; display: inline-block; margin: 2px; }
+        </style></head>
+        <body>
+            <div class="panel">
+                <h2>Admin Panel</h2>
+                <input type="password" id="adminKey" placeholder="Admin Key">
+                <div style="display:flex; gap:5px;">
+                    <button class="type-btn" onclick="generate('weekly')">Weekly</button>
+                    <button class="type-btn" onclick="generate('monthly')">Monthly</button>
+                    <button class="type-btn" onclick="generate('lifetime')">Lifetime</button>
+                </div>
+                <div id="result"></div>
+            </div>
+            <script>
+                async function generate(type) {
+                    const key = document.getElementById('adminKey').value;
+                    const res = await fetch('/admin/generate', {
+                        method: 'POST',
+                        headers: { 'X-Admin-Key': key, 'X-Key-Type': type }
+                    });
+                    const data = await res.json();
+                    document.getElementById('result').textContent = data.key || data.detail;
+                }
+            </script>
+        </body>
+    </html>
+    """
+    return Response(content=html, media_type="text/html")
+
+@app.post("/admin/generate")
+async def generate_key(x_admin_key: str = Header(...), x_key_type: str = Header(...)):
+    if not database.check_admin(x_admin_key):
+        raise HTTPException(status_code=401, detail="Invalid admin key")
+    
+    duration = 0
+    if x_key_type == "weekly":
+        duration = 7
+    elif x_key_type == "monthly":
+        duration = 30
+    # lifetime remains 0 (infinite)
+    
+    return {"key": database.generate_key(duration)}

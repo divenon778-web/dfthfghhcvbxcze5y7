@@ -96,18 +96,37 @@ TOWER_TOTAL = TOWER_ROWS * TOWER_COLS
 
 def parse_tower_rows(history):
     rows = []
+    if not isinstance(history, list):
+        return rows
     for game in history:
-        raw = game.get('tiles') or game.get('bombPositions') or game.get('grid', [])
-        if isinstance(raw, list) and len(raw) >= 8:
-            for r in raw[:8]:
-                if isinstance(r, list) and len(r) >= 3:
-                    rows.append([int(x) if x in (0,1) else 0 for x in r[:3]])
-        elif isinstance(game, dict):
-            for i in range(8):
-                key = f'row{i}'
-                r = game.get(key)
-                if isinstance(r, list) and len(r) >= 3:
-                    rows.append([int(x) if x in (0,1) else 0 for x in r[:3]])
+        if not isinstance(game, dict):
+            continue
+        found = None
+        for key in ('tiles', 'bombPositions', 'grid', 'board', 'rows', 'data'):
+            raw = game.get(key)
+            if isinstance(raw, list) and len(raw) >= 3:
+                found = raw
+                break
+        if found is None:
+            for val in game.values():
+                if isinstance(val, list) and len(val) >= 3:
+                    first = val[0]
+                    if isinstance(first, list) and len(first) >= 2:
+                        found = val
+                        break
+        if found is None:
+            continue
+        for r in found[:8]:
+            if isinstance(r, list) and len(r) >= 2:
+                row = []
+                for x in r[:3]:
+                    try:
+                        row.append(1 if int(x) == 1 else 0)
+                    except (ValueError, TypeError):
+                        row.append(0)
+                while len(row) < TOWER_COLS:
+                    row.append(0)
+                rows.append(row[:TOWER_COLS])
     return rows
 
 def tower_pathfinding(history, count=None, prediction_history=None):
@@ -124,7 +143,10 @@ def tower_pathfinding(history, count=None, prediction_history=None):
             for c in range(TOWER_COLS):
                 if c < len(nxt) and nxt[c] == 0:
                     scores[min(bomb + c, TOWER_COLS - 1)] += 1
-        best = max(range(TOWER_COLS), key=lambda c: scores[c])
+        if any(s > 0 for s in scores):
+            best = max(range(TOWER_COLS), key=lambda c: scores[c])
+        else:
+            best = row_i % TOWER_COLS
         result.append(row_i * TOWER_COLS + best)
     return result
 
@@ -140,7 +162,10 @@ def tower_probability(history, count=None, prediction_history=None):
             for c in range(TOWER_COLS):
                 if c < len(row) and row[c] == 0:
                     scores[c] += 1
-        best = max(range(TOWER_COLS), key=lambda c: scores[c])
+        if any(s > 0 for s in scores):
+            best = max(range(TOWER_COLS), key=lambda c: scores[c])
+        else:
+            best = (row_i + 1) % TOWER_COLS
         result.append(row_i * TOWER_COLS + best)
     return result
 
@@ -163,6 +188,9 @@ def vain_tower_algo(history, count=None, prediction_history=None):
                 for c in range(TOWER_COLS):
                     if c < len(row) and row[c] == 0:
                         safe_scores[c] += 1
-            best = max(range(TOWER_COLS), key=lambda c: safe_scores[c])
+            if any(s > 0 for s in safe_scores):
+                best = max(range(TOWER_COLS), key=lambda c: safe_scores[c])
+            else:
+                best = (row_i * 2) % TOWER_COLS
             result.append(row_i * TOWER_COLS + best)
     return result

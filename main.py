@@ -91,9 +91,11 @@ async def predict(req: PredictionRequest, x_user_key: str = Header(...)):
         "aspect": algorithms.aspect_algo,
         "algo2": algorithms.algorithm2,
         "coxy": algorithms.coxy_mines2,
-        "tower_vain": algorithms.vain_tower_algo,
+        "tower_vain": algorithms.tower_vain,
         "tower_pathfinding": algorithms.tower_pathfinding,
-        "tower_probability": algorithms.tower_probability,
+        "tower_frequency": algorithms.tower_frequency,
+        "tower_pattern": algorithms.tower_pattern,
+        "tower_pastgames": algorithms.tower_pastgames,
     }
     
     func = algo_map.get(req.algorithm, algorithms.vain_algo)

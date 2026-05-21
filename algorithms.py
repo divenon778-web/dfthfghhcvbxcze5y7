@@ -110,43 +110,59 @@ def parse_tower_rows(history):
                     rows.append([int(x) if x in (0,1) else 0 for x in r[:3]])
     return rows
 
-def tower_pathfinding(history, count, prediction_history=None):
-    scores = [0] * TOWER_TOTAL
+def tower_pathfinding(history, count=None, prediction_history=None):
     rows = parse_tower_rows(history)
-    if not rows:
-        return list(range(min(count, TOWER_TOTAL)))
-    for i in range(min(len(rows) - 1, 50)):
-        cur = rows[i]
-        nxt = rows[i + 1]
-        bomb = cur.index(1) if 1 in cur else 0
-        safe = [c for c in range(TOWER_COLS) if c < len(nxt) and nxt[c] == 0]
-        for s in safe:
-            idx = ((i + 1) % TOWER_ROWS) * TOWER_COLS + min(bomb + s, TOWER_COLS - 1)
-            if idx < TOWER_TOTAL:
-                scores[idx] += 1
-    indexed = sorted([{'i': i, 'v': v} for i, v in enumerate(scores)], key=lambda k: k['v'], reverse=True)
-    return [x['i'] for x in indexed[:count]]
+    result = []
+    for row_i in range(TOWER_ROWS):
+        scores = [0] * TOWER_COLS
+        for i in range(len(rows) - 1):
+            if i % TOWER_ROWS != row_i:
+                continue
+            cur = rows[i]
+            nxt = rows[i + 1]
+            bomb = cur.index(1) if 1 in cur else 0
+            for c in range(TOWER_COLS):
+                if c < len(nxt) and nxt[c] == 0:
+                    scores[min(bomb + c, TOWER_COLS - 1)] += 1
+        best = max(range(TOWER_COLS), key=lambda c: scores[c])
+        result.append(row_i * TOWER_COLS + best)
+    return result
 
-def tower_probability(history, count, prediction_history=None):
-    scores = [0] * TOWER_TOTAL
+def tower_probability(history, count=None, prediction_history=None):
     rows = parse_tower_rows(history)
-    if not rows:
-        return list(range(min(count, TOWER_TOTAL)))
-    for i in range(len(rows)):
-        row = rows[i]
-        for c in range(TOWER_COLS):
-            if c < len(row) and row[c] == 0:
-                idx = (i % TOWER_ROWS) * TOWER_COLS + c
-                if idx < TOWER_TOTAL:
-                    scores[idx] += 1
-    indexed = sorted([{'i': i, 'v': v} for i, v in enumerate(scores)], key=lambda k: k['v'], reverse=True)
-    return [x['i'] for x in indexed[:count]]
+    result = []
+    for row_i in range(TOWER_ROWS):
+        scores = [0] * TOWER_COLS
+        for i in range(len(rows)):
+            if i % TOWER_ROWS != row_i:
+                continue
+            row = rows[i]
+            for c in range(TOWER_COLS):
+                if c < len(row) and row[c] == 0:
+                    scores[c] += 1
+        best = max(range(TOWER_COLS), key=lambda c: scores[c])
+        result.append(row_i * TOWER_COLS + best)
+    return result
 
-def vain_tower_algo(history, count, prediction_history=None):
-    a = set(tower_pathfinding(history, count * 2))
-    b = set(tower_probability(history, count * 2))
-    combined = list(a & b) + list(a ^ b)
-    if len(combined) >= count:
-        return combined[:count]
-    remaining = [i for i in range(TOWER_TOTAL) if i not in combined]
-    return combined + remaining[:count - len(combined)]
+def vain_tower_algo(history, count=None, prediction_history=None):
+    path = tower_pathfinding(history)
+    prob = tower_probability(history)
+    result = []
+    for row_i in range(TOWER_ROWS):
+        p_col = path[row_i] % TOWER_COLS
+        r_col = prob[row_i] % TOWER_COLS
+        if p_col == r_col:
+            result.append(row_i * TOWER_COLS + p_col)
+        else:
+            rows = parse_tower_rows(history)
+            safe_scores = [0] * TOWER_COLS
+            for i in range(len(rows)):
+                if i % TOWER_ROWS != row_i:
+                    continue
+                row = rows[i]
+                for c in range(TOWER_COLS):
+                    if c < len(row) and row[c] == 0:
+                        safe_scores[c] += 1
+            best = max(range(TOWER_COLS), key=lambda c: safe_scores[c])
+            result.append(row_i * TOWER_COLS + best)
+    return result

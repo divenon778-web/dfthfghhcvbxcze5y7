@@ -5,7 +5,32 @@ from typing import List, Optional
 import algorithms
 import database
 
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, X-User-Key, X-Admin-Key, X-Key-Type",
+    "Access-Control-Max-Age": "86400",
+}
+
+class CORSMiddleware:
+    def __init__(self, app):
+        self.app = app
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["method"] == "OPTIONS":
+            response = Response(status_code=200, headers=CORS_HEADERS)
+            await response(scope, receive, send)
+            return
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                headers = dict(message.get("headers", []))
+                for key, value in CORS_HEADERS.items():
+                    headers[key.lower().encode()] = value.encode()
+                message["headers"] = list(headers.items())
+            await send(message)
+        await self.app(scope, receive, send_wrapper)
+
 app = FastAPI(title="Vain Backend")
+app.add_middleware(CORSMiddleware)
 
 class PredictionRequest(BaseModel):
     history: List[dict]

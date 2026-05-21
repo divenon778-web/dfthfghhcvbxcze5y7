@@ -110,7 +110,7 @@ def parse_tower_rows(history):
                     rows.append([int(x) if x in (0,1) else 0 for x in r[:3]])
     return rows
 
-def tower_pathfinding(history, count):
+def tower_pathfinding(history, count, prediction_history=None):
     scores = [0] * TOWER_TOTAL
     rows = parse_tower_rows(history)
     if not rows:
@@ -127,7 +127,7 @@ def tower_pathfinding(history, count):
     indexed = sorted([{'i': i, 'v': v} for i, v in enumerate(scores)], key=lambda k: k['v'], reverse=True)
     return [x['i'] for x in indexed[:count]]
 
-def tower_probability(history, count):
+def tower_probability(history, count, prediction_history=None):
     scores = [0] * TOWER_TOTAL
     rows = parse_tower_rows(history)
     if not rows:
@@ -142,7 +142,7 @@ def tower_probability(history, count):
     indexed = sorted([{'i': i, 'v': v} for i, v in enumerate(scores)], key=lambda k: k['v'], reverse=True)
     return [x['i'] for x in indexed[:count]]
 
-def vain_tower_algo(history, count):
+def vain_tower_algo(history, count, prediction_history=None):
     a = set(tower_pathfinding(history, count * 2))
     b = set(tower_probability(history, count * 2))
     combined = list(a & b) + list(a ^ b)

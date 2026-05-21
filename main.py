@@ -38,10 +38,6 @@ class PredictionRequest(BaseModel):
     algorithm: str = "vain"
     prediction_history: Optional[List[dict]] = []
 
-class SlidePredictionRequest(BaseModel):
-    history: List[dict]
-    algorithm: str = "vainslide"
-
 @app.get("/")
 async def root():
     html = """
@@ -72,7 +68,10 @@ async def predict(req: PredictionRequest, x_user_key: str = Header(...)):
         "pastgames": algorithms.past_games,
         "aspect": algorithms.aspect_algo,
         "algo2": algorithms.algorithm2,
-        "coxy": algorithms.coxy_mines2
+        "coxy": algorithms.coxy_mines2,
+        "tower_vain": algorithms.vain_tower_algo,
+        "tower_pathfinding": algorithms.tower_pathfinding,
+        "tower_probability": algorithms.tower_probability,
     }
     
     func = algo_map.get(req.algorithm, algorithms.vain_algo)
@@ -80,16 +79,6 @@ async def predict(req: PredictionRequest, x_user_key: str = Header(...)):
     try:
         result = func(req.history, req.count, req.prediction_history)
         return {"safeIndices": result, "algorithm": req.algorithm}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/predict-slide")
-async def predict_slide(req: SlidePredictionRequest, x_user_key: str = Header(...)):
-    if not database.is_valid_key(x_user_key):
-        raise HTTPException(status_code=401, detail="Invalid key")
-    try:
-        result = algorithms.vain_slide_algo(req.history)
-        return {"prediction": result, "algorithm": "vainslide"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

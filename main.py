@@ -100,7 +100,14 @@ async def predict(req: PredictionRequest, x_user_key: str = Header(...)):
     
     try:
         result = func(req.history, req.count, req.prediction_history)
-        return {"safeIndices": result, "algorithm": req.algorithm}
+        debug = {}
+        if req.algorithm.startswith('tower_'):
+            rows = algorithms.parse_tower_rows(req.history)
+            debug['parsed_rows'] = len(rows)
+            debug['history_len'] = len(req.history)
+            if req.history:
+                debug['first_game_keys'] = list(req.history[0].keys()) if isinstance(req.history[0], dict) else 'not dict'
+        return {"safeIndices": result, "algorithm": req.algorithm, "debug": debug}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

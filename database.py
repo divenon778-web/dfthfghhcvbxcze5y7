@@ -11,12 +11,15 @@ ADMIN_KEY = "9001"
 def is_valid_key(user_key: str) -> bool:
     return redis_client.exists(f"vain_key:{user_key}")
 
-def generate_key(duration_days: int = 0) -> str:
+def generate_key(key_type: str = "weekly") -> str:
     chars = string.ascii_letters + string.digits
     key = ''.join(random.choices(chars, k=16))
-    redis_client.set(f"vain_key:{key}", "active")
-    if duration_days > 0:
-        redis_client.expire(f"vain_key:{key}", duration_days * 86400)
+    ttl_map = {"weekly": 604800, "monthly": 2592000}
+    ttl = ttl_map.get(key_type)
+    if ttl:
+        redis_client.setex(f"vain_key:{key}", ttl, "active")
+    else:
+        redis_client.set(f"vain_key:{key}", "active")
     return key
 
 def check_admin(admin_key: str) -> bool:

@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import List, Optional
 import algorithms
@@ -13,9 +13,10 @@ class PredictionRequest(BaseModel):
     algorithm: str = "vain"
     prediction_history: Optional[List[dict]] = []
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 async def root():
-    return """
+    html = """
+    <!DOCTYPE html>
     <html>
         <head><style>
             body { background:#0a0a0a; color:#fff; font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; }
@@ -30,6 +31,7 @@ async def root():
         </body>
     </html>
     """
+    return Response(content=html, media_type="text/html")
 
 @app.post("/predict")
 async def predict(req: PredictionRequest, x_user_key: str = Header(...)):
@@ -54,7 +56,8 @@ async def predict(req: PredictionRequest, x_user_key: str = Header(...)):
 
 @app.get("/admin")
 async def admin_panel():
-    return """
+    html = """
+    <!DOCTYPE html>
     <html>
         <head><style>
             body { background:#0a0a0a; color:#fff; font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; }
@@ -85,6 +88,7 @@ async def admin_panel():
         </body>
     </html>
     """
+    return Response(content=html, media_type="text/html")
 
 @app.post("/admin/generate")
 async def generate_key(x_admin_key: str = Header(...)):
